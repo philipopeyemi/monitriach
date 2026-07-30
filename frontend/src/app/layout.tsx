@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { Providers } from "./providers";
+import Providers from "./providers";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MONITRIACH CORE | Autonomous AI Sales Operating System",
-  description: "Enterprise Autonomous AI Sales Operating System foundation.",
+  title: "MONITRIACH | Autonomous AI Revenue Operating System",
+  description: "Autonomous AI Revenue Operating System for research, personalized outreach, buying signal detection, and pipeline management.",
 };
 
 export default function RootLayout({
@@ -14,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full">
-      <body className="h-full bg-slate-50 antialiased selection:bg-slate-900 selection:text-white">
+      <body className={`${inter.className} h-full bg-[#FFFFFF] text-slate-900 antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

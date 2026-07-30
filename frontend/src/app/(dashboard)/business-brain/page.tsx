@@ -1,64 +1,111 @@
 "use client";
 
-import React from "react";
-import { BrainCircuit, Plus, FileText, CheckCircle2, MessageSquareQuote, Target, Shield, HelpCircle, Layers } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { 
+  Database, 
+  Sparkles, 
+  FileText, 
+  Tag, 
+  Briefcase, 
+  DollarSign, 
+  Volume2, 
+  ShieldAlert, 
+  HelpCircle, 
+  FolderArchive,
+  Layers,
+  Plus
+} from "lucide-react";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 
 export default function CompanyIntelligencePage() {
-  const brainCategories = [
-    { title: "Core Services & Products", count: "8 Services Defined", icon: Layers, desc: "SaaS Platform, Custom Enterprise AI Ops, Dedicated Support" },
-    { title: "Tailored Offers", count: "12 Offer Models", icon: Target, desc: "High-ROI Pilot Programs, Free 14-day Audit, Enterprise Tier" },
-    { title: "Testimonials & Social Proof", count: "24 Verified Quotes", icon: MessageSquareQuote, desc: "Customer reviews from CTOs, VPs of Sales, and Founders" },
-    { title: "Case Studies", count: "6 In-depth Studies", icon: FileText, desc: "3.4x ARR increase for Fintech SaaS, 45% lower CAC" },
-    { title: "Brand Voice & Positioning", count: "3 Voice Presets", icon: BrainCircuit, desc: "Authoritative, Consultative, High-Energy Direct" },
-    { title: "Ideal Customer Profiles (ICPs)", count: "5 ICP Schemas", icon: Target, desc: "B2B SaaS ($5M-$50M ARR), Fintech, Agency Founders" },
-    { title: "Competitor Intelligence", count: "9 Competitor Cards", icon: Shield, desc: "Battlecards vs Lemlist, Instantly, Clay, Apollo" },
-    { title: "Objection Handling Matrix", count: "18 Scripts", icon: HelpCircle, desc: "Security compliance, pricing resistance, existing stack" },
+  const [activeCategory, setActiveCategory] = useState("services");
+
+  const categories = [
+    { id: "services", label: "Services & Products", icon: Briefcase, count: 6 },
+    { id: "offers", label: "Value Offers", icon: Tag, count: 4 },
+    { id: "testimonials", label: "Testimonials", icon: FileText, count: 12 },
+    { id: "case_studies", label: "Case Studies", icon: FolderArchive, count: 8 },
+    { id: "pricing", label: "Pricing Models", icon: DollarSign, count: 3 },
+    { id: "brand_voice", label: "Brand Voice", icon: Volume2, count: 5 },
+    { id: "competitors", label: "Competitors", icon: Layers, count: 7 },
+    { id: "faqs", label: "FAQs", icon: HelpCircle, count: 15 },
+    { id: "assets", label: "Sales Assets", icon: FileText, count: 9 },
+    { id: "objections", label: "Objections & SOPs", icon: ShieldAlert, count: 11 },
+    { id: "frameworks", label: "Sales Frameworks", icon: Sparkles, count: 4 },
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
-        <div>
-          <div className="flex items-center space-x-2">
-            <BrainCircuit className="h-6 w-6 text-purple-600" />
-            <h1 className="text-2xl font-bold text-slate-900">Company Intelligence</h1>
+    <DashboardShell>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
+          <div>
+            <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+              <span>Persistent Business Memory</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center space-x-3">
+              <Database className="w-7 h-7 text-slate-900" />
+              <span>Company Intelligence</span>
+            </h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            The persistent Business Memory repository powering AEGIS — Services, Offers, Case Studies, Brand Voice, ICPs & Sales Assets
-          </p>
-        </div>
-        <Button size="sm">
-          <Plus className="mr-2 h-4 w-4" /> Add Intelligence Asset
-        </Button>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {brainCategories.map((cat, i) => {
-          const Icon = cat.icon;
-          return (
-            <Card key={i} className="shadow-card border-slate-200 hover:border-purple-300 transition-all cursor-pointer">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="p-2.5 rounded-xl bg-purple-50 text-purple-600">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <Badge variant="secondary">{cat.count}</Badge>
+          <button className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-all flex items-center space-x-2 shadow-sm">
+            <Plus className="w-4 h-4" />
+            <span>Add Memory Asset</span>
+          </button>
+        </div>
+
+        {/* Categories Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {categories.map((cat) => {
+            const Icon = cat.icon;
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`p-4 rounded-xl text-left border transition-all flex items-center justify-between ${
+                  isActive 
+                    ? "bg-slate-900 text-white border-slate-900 shadow-md" 
+                    : "bg-white text-slate-800 border-slate-200/80 hover:border-slate-300 shadow-sm"
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-600"}`} />
+                  <span className="text-xs font-semibold">{cat.label}</span>
                 </div>
-                <CardTitle className="text-base font-semibold">{cat.title}</CardTitle>
-                <CardDescription className="text-xs text-slate-500 line-clamp-2 mt-1">{cat.desc}</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <Button variant="ghost" size="sm" className="w-full text-xs text-purple-700 hover:bg-purple-50">
-                  Manage Intelligence Assets →
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  isActive ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"
+                }`}>
+                  {cat.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Memory Content Viewer */}
+        <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm min-h-[300px]">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+            <h3 className="text-sm font-bold text-slate-900 capitalize">
+              {categories.find(c => c.id === activeCategory)?.label} Storage
+            </h3>
+            <span className="text-xs text-emerald-600 font-medium flex items-center space-x-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Synced with AEGIS Context</span>
+            </span>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-700 leading-relaxed">
+            {`{
+  "category": "${activeCategory}",
+  "total_records": ${categories.find(c => c.id === activeCategory)?.count},
+  "last_updated": "${new Date().toISOString()}",
+  "status": "READY_FOR_AI_INFERENCE"
+}`}
+          </div>
+        </div>
       </div>
-    </div>
+    </DashboardShell>
   );
 }
