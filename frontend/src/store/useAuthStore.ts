@@ -3,14 +3,14 @@ import { create } from "zustand";
 interface User {
   id: string;
   email: string;
-  full_name: str;
+  full_name: string;
   organization_id?: string;
 }
 
 interface AuthState {
   user: User | null;
   token: string | null;
-  isAuthenticated: bool;
+  isAuthenticated: boolean;
   setAuth: (user: User, token: string) => void;
   logout: () => void;
 }
