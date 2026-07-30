@@ -24,12 +24,10 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { OpportunityTimeline } from "@/components/shared/OpportunityTimeline";
 
 export default function OpportunityDetailPage({ params }: { params: { id: string } }) {
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "intelligence" | "memory" | "timeline" | "offers" | "emails" | "meetings" | "crm" | "analytics" | "tasks" | "ai"
-  >("overview");
+  const [activeTab, setActiveTab] = useState<string>("overview");
 
   const opportunity = {
-    id: params.id || "opp_stripe_01",
+    id: params?.id || "opp_stripe_01",
     company_name: "Stripe, Inc.",
     domain: "stripe.com",
     industry: "Fintech & Payments",
@@ -125,7 +123,7 @@ export default function OpportunityDetailPage({ params }: { params: { id: string
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id)}
                 className={`px-3.5 py-2 rounded-lg text-xs font-medium transition-all flex items-center space-x-2 whitespace-nowrap ${
                   isActive 
                     ? "bg-slate-900 text-white shadow-sm" 
