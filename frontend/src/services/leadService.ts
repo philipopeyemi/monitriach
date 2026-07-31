@@ -34,5 +34,27 @@ export const leadService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async updateLead(id: string, updates: Partial<LeadRecord>) {
+    const { data, error } = await supabase
+      .from("leads")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteLead(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("leads")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+    return true;
   }
 };

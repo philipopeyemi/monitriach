@@ -46,5 +46,15 @@ export const opportunityService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async deleteOpportunity(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("opportunities")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+    return true;
   }
 };

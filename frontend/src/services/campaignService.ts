@@ -33,5 +33,27 @@ export const campaignService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async updateCampaign(id: string, updates: Partial<CampaignRecord>) {
+    const { data, error } = await supabase
+      .from("campaigns")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteCampaign(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("campaigns")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+    return true;
   }
 };
