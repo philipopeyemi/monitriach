@@ -7,18 +7,17 @@ import {
   Plus, 
   Upload, 
   Mail, 
-  Phone, 
   Building2, 
   Sparkles, 
   X,
-  RefreshCw,
-  FileSpreadsheet
+  RefreshCw
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { supabase } from "@/lib/supabaseClient";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { CsvImportModal } from "@/components/leads/CsvImportModal";
 
 export interface Lead {
   id: string;
@@ -308,30 +307,12 @@ export default function LeadsPage() {
           </div>
         )}
 
-        {/* CSV Import Modal */}
-        {isImportModalOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-800">
-                <FileSpreadsheet className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-lg font-bold text-slate-900">Import CSV Lead List</h3>
-                <p className="text-xs text-slate-500">Upload CSV with headers: name, title, company, email</p>
-              </div>
-              <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 hover:bg-slate-100/50 transition-colors cursor-pointer">
-                <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">Drag & drop CSV file here</p>
-                <p className="text-[11px] text-slate-400 mt-1">or click to browse files</p>
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2 text-xs font-semibold text-slate-600">
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Production CSV Import Modal */}
+        <CsvImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={fetchLeads}
+        />
       </div>
     </DashboardShell>
   );
