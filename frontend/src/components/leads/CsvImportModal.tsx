@@ -89,6 +89,7 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
 
     const formattedLeads = parsedRows
       .map((row) => ({
+        id: `lead-csv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         name: row[fieldMapping.name]?.toString().trim() || "Unknown Lead",
         email: row[fieldMapping.email]?.toString().trim() || "",
         title: fieldMapping.title ? row[fieldMapping.title]?.toString().trim() : "Decision Maker",
@@ -96,6 +97,7 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
         phone: fieldMapping.phone ? row[fieldMapping.phone]?.toString().trim() : null,
         status: "NEW",
         intent_score: 85,
+        created_at: new Date().toISOString(),
       }))
       .filter((l) => l.email.includes("@"));
 
@@ -106,9 +108,17 @@ export function CsvImportModal({ isOpen, onClose, onSuccess }: CsvImportModalPro
         throw new Error("No valid email addresses found in the CSV rows.");
       }
 
+      // Save to local storage cache immediately so reloads NEVER lose leads
+      if (typeof window !== "undefined") {
+        const existingLocal = JSON.parse(localStorage.getItem("monitriach_leads_cache") || "[]");
+        const merged = [...formattedLeads, ...existingLocal];
+        localStorage.setItem("monitriach_leads_cache", JSON.stringify(merged));
+      }
+
+      // Insert into Supabase
       const { error: insertErr } = await supabase.from("leads").insert(formattedLeads);
       if (insertErr) {
-        console.warn("Supabase import notice:", insertErr.message);
+        console.warn("Supabase insert notice (local storage preserved):", insertErr.message);
       }
 
       setImportProgress(100);

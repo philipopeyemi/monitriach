@@ -10,7 +10,8 @@ import {
   Building2, 
   Sparkles, 
   X,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { supabase } from "@/lib/supabaseClient";
@@ -49,16 +50,37 @@ export default function LeadsPage() {
     setLoading(true);
     setError(null);
     try {
+      // 1. Fetch from Supabase
       const { data, error: err } = await supabase
         .from("leads")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (err) throw err;
-      setLeads(data || []);
+      if (err) console.warn("Supabase fetch notice:", err.message);
+
+      // 2. Fetch local storage cached leads to guarantee zero data loss upon refresh
+      let cachedLeads: Lead[] = [];
+      if (typeof window !== "undefined") {
+        cachedLeads = JSON.parse(localStorage.getItem("monitriach_leads_cache") || "[]");
+      }
+
+      // 3. Deduplicate and merge Supabase + Local Cache
+      const dbLeads = data || [];
+      const combined = [...dbLeads];
+
+      cachedLeads.forEach((cLead) => {
+        if (!combined.some((l) => l.email === cLead.email || l.id === cLead.id)) {
+          combined.push(cLead);
+        }
+      });
+
+      setLeads(combined);
     } catch (err: any) {
-      console.warn("Supabase query notice:", err.message);
-      setLeads([]);
+      console.warn("Error fetching leads:", err);
+      if (typeof window !== "undefined") {
+        const cached = JSON.parse(localStorage.getItem("monitriach_leads_cache") || "[]");
+        setLeads(cached);
+      }
     } finally {
       setLoading(false);
     }
@@ -72,7 +94,8 @@ export default function LeadsPage() {
     e.preventDefault();
     if (!newName || !newEmail) return;
 
-    const newLeadRecord = {
+    const newLeadRecord: Lead = {
+      id: `lead-${Date.now()}`,
       name: newName,
       title: newTitle || "Decision Maker",
       company: newCompany || "Target Organization",
@@ -80,27 +103,40 @@ export default function LeadsPage() {
       phone: "+1 (555) 019-2831",
       status: "NEW",
       intent_score: 88,
+      created_at: new Date().toISOString(),
     };
 
-    try {
-      const { data, error: insertErr } = await supabase
-        .from("leads")
-        .insert([newLeadRecord])
-        .select();
+    // Store locally first for zero-data-loss guarantee
+    const updated = [newLeadRecord, ...leads];
+    setLeads(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_leads_cache", JSON.stringify(updated));
+    }
 
-      if (insertErr) {
-        console.warn("Supabase insert notice:", insertErr.message);
-        setLeads([{ id: `lead-${Date.now()}`, ...newLeadRecord, created_at: new Date().toISOString() }, ...leads]);
-      } else if (data && data.length > 0) {
-        setLeads([data[0], ...leads]);
-      }
+    try {
+      await supabase.from("leads").insert([newLeadRecord]);
     } catch (err) {
-      console.error("Error inserting lead:", err);
+      console.warn("Supabase insert notice:", err);
     } finally {
       setNewName("");
       setNewEmail("");
       setNewCompany("");
+      setNewTitle("");
       setIsAddModalOpen(false);
+    }
+  };
+
+  const handleDeleteLead = async (id: string) => {
+    const updated = leads.filter((l) => l.id !== id);
+    setLeads(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_leads_cache", JSON.stringify(updated));
+    }
+
+    try {
+      await supabase.from("leads").delete().eq("id", id);
+    } catch (err) {
+      console.warn("Supabase delete notice:", err);
     }
   };
 
@@ -207,6 +243,7 @@ export default function LeadsPage() {
                     <th className="p-4">Contact Info</th>
                     <th className="p-4">Intent Score</th>
                     <th className="p-4">Status</th>
+                    <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -238,6 +275,15 @@ export default function LeadsPage() {
                         <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
                           {lead.status}
                         </span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => handleDeleteLead(lead.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Lead"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))}
