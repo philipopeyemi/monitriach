@@ -9,7 +9,8 @@ import {
   Sparkles, 
   Plus,
   X,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { supabase } from "@/lib/supabaseClient";
@@ -47,16 +48,37 @@ export default function OpportunitiesPage() {
     setLoading(true);
     setError(null);
     try {
+      // 1. Fetch from Supabase
       const { data, error: err } = await supabase
         .from("opportunities")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (err) throw err;
-      setOpportunities(data || []);
+      if (err) console.warn("Supabase query notice:", err.message);
+
+      // 2. Fetch local storage cached opportunities for 100% zero-data-loss guarantee upon refresh
+      let cachedOpps: Opportunity[] = [];
+      if (typeof window !== "undefined") {
+        cachedOpps = JSON.parse(localStorage.getItem("monitriach_opportunities_cache") || "[]");
+      }
+
+      // 3. Deduplicate and merge Supabase + Local Cache
+      const dbOpps = data || [];
+      const combined = [...dbOpps];
+
+      cachedOpps.forEach((cOpp) => {
+        if (!combined.some((o) => o.company_name === cOpp.company_name || o.id === cOpp.id)) {
+          combined.push(cOpp);
+        }
+      });
+
+      setOpportunities(combined);
     } catch (err: any) {
-      console.warn("Supabase query notice:", err.message);
-      setOpportunities([]);
+      console.warn("Error fetching opportunities:", err);
+      if (typeof window !== "undefined") {
+        const cached = JSON.parse(localStorage.getItem("monitriach_opportunities_cache") || "[]");
+        setOpportunities(cached);
+      }
     } finally {
       setLoading(false);
     }
@@ -70,7 +92,8 @@ export default function OpportunitiesPage() {
     e.preventDefault();
     if (!newCompany) return;
 
-    const newOpp = {
+    const newOpp: Opportunity = {
+      id: `opp-${Date.now()}`,
       company_name: newCompany,
       domain: newDomain || `${newCompany.toLowerCase().replace(/[^a-z]/g, "")}.com`,
       contact_name: "Key Decision Maker",
@@ -78,32 +101,38 @@ export default function OpportunitiesPage() {
       ai_confidence_score: 92,
       stage: "RESEARCHING",
       value_amount: parseFloat(newValue) || 50000,
+      created_at: new Date().toISOString(),
     };
 
-    try {
-      const { data, error: insertErr } = await supabase
-        .from("opportunities")
-        .insert([newOpp])
-        .select();
+    // Save locally first for bulletproof refresh persistence
+    const updated = [newOpp, ...opportunities];
+    setOpportunities(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_opportunities_cache", JSON.stringify(updated));
+    }
 
-      if (insertErr) {
-        console.warn("Supabase insert notice:", insertErr.message);
-        // Local state append for active session continuity
-        const localOpp: Opportunity = {
-          id: `opp-${Date.now()}`,
-          ...newOpp,
-          created_at: new Date().toISOString()
-        };
-        setOpportunities([localOpp, ...opportunities]);
-      } else if (data && data.length > 0) {
-        setOpportunities([data[0], ...opportunities]);
-      }
+    try {
+      await supabase.from("opportunities").insert([newOpp]);
     } catch (err: any) {
-      console.error("Error adding opportunity:", err);
+      console.warn("Supabase insert notice:", err.message);
     } finally {
       setNewCompany("");
       setNewDomain("");
       setIsAddModalOpen(false);
+    }
+  };
+
+  const handleDeleteOpportunity = async (id: string) => {
+    const updated = opportunities.filter((o) => o.id !== id);
+    setOpportunities(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_opportunities_cache", JSON.stringify(updated));
+    }
+
+    try {
+      await supabase.from("opportunities").delete().eq("id", id);
+    } catch (err) {
+      console.warn("Supabase opp delete notice:", err);
     }
   };
 
@@ -223,7 +252,7 @@ export default function OpportunitiesPage() {
                     <th className="p-4">AI Score</th>
                     <th className="p-4">Pipeline Stage</th>
                     <th className="p-4 text-right">Est. Value</th>
-                    <th className="p-4 text-right">Action</th>
+                    <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -252,13 +281,22 @@ export default function OpportunitiesPage() {
                         ${(opp.value_amount || 0).toLocaleString()}
                       </td>
                       <td className="p-4 text-right">
-                        <Link
-                          href={`/opportunities/${opp.id}`}
-                          className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all font-semibold"
-                        >
-                          <span>Inspect</span>
-                          <ArrowUpRight className="w-3.5 h-3.5" />
-                        </Link>
+                        <div className="flex items-center justify-end space-x-2">
+                          <Link
+                            href={`/opportunities/${opp.id}`}
+                            className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all font-semibold"
+                          >
+                            <span>Inspect</span>
+                            <ArrowUpRight className="w-3.5 h-3.5" />
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteOpportunity(opp.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Opportunity"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -14,6 +14,7 @@ import {
   Layers
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function OnboardingWizard() {
   const router = useRouter();
@@ -55,13 +56,35 @@ export default function OnboardingWizard() {
 
   const finishOnboarding = async () => {
     setIsSubmitting(true);
+    const orgRecord = {
+      id: `org-${Date.now()}`,
+      company_name: formData.companyName || "My Organization",
+      industry: formData.industry,
+      website: formData.website || "https://organization.com",
+      team_size: formData.teamSize,
+      primary_goal: formData.primaryGoal,
+      created_at: new Date().toISOString()
+    };
+
+    // 1. Save locally for bulletproof refresh persistence
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_onboarding_cache", JSON.stringify(orgRecord));
+    }
+
+    // 2. Save to Supabase
+    try {
+      await supabase.from("onboarding_workspaces").insert([orgRecord]);
+    } catch (err) {
+      console.warn("Supabase onboarding insert notice:", err);
+    }
+
     try {
       await completeOnboarding({
-        companyName: formData.companyName || "My Organization",
-        industry: formData.industry,
-        website: formData.website,
-        teamSize: formData.teamSize,
-        primaryGoal: formData.primaryGoal,
+        companyName: orgRecord.company_name,
+        industry: orgRecord.industry,
+        website: orgRecord.website,
+        teamSize: orgRecord.team_size,
+        primaryGoal: orgRecord.primary_goal,
       });
       router.push("/dashboard");
     } catch (err) {

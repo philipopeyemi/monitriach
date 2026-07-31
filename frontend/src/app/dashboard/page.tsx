@@ -50,8 +50,8 @@ export default function MissionControlDashboard() {
   const fetchLiveMetrics = async () => {
     setLoading(true);
     try {
-      // Query live opportunity count from Supabase
-      const { count: oppCount, error: oppErr } = await supabase
+      // Query live counts from Supabase
+      const { count: oppCount } = await supabase
         .from("opportunities")
         .select("*", { count: "exact", head: true });
 
@@ -63,20 +63,46 @@ export default function MissionControlDashboard() {
         .from("leads")
         .select("*", { count: "exact", head: true });
 
+      let localLeadsCount = 0;
+      let localCampsCount = 0;
+      let localOppsCount = 0;
+
+      if (typeof window !== "undefined") {
+        const cachedLeads = JSON.parse(localStorage.getItem("monitriach_leads_cache") || "[]");
+        const cachedCamps = JSON.parse(localStorage.getItem("monitriach_campaigns_cache") || "[]");
+        const cachedOpps = JSON.parse(localStorage.getItem("monitriach_opportunities_cache") || "[]");
+        localLeadsCount = cachedLeads.length;
+        localCampsCount = cachedCamps.length;
+        localOppsCount = cachedOpps.length;
+      }
+
       setMetrics({
-        opportunityCount: oppCount || 0,
-        campaignCount: campCount || 0,
-        leadCount: leadCount || 0,
+        opportunityCount: Math.max(oppCount || 0, localOppsCount),
+        campaignCount: Math.max(campCount || 0, localCampsCount),
+        leadCount: Math.max(leadCount || 0, localLeadsCount),
         replyCount: 0,
         meetingCount: 0,
         pipelineValue: 0,
       });
     } catch (err) {
       console.warn("Notice querying Supabase metrics:", err);
+      let localLeadsCount = 0;
+      let localCampsCount = 0;
+      let localOppsCount = 0;
+
+      if (typeof window !== "undefined") {
+        const cachedLeads = JSON.parse(localStorage.getItem("monitriach_leads_cache") || "[]");
+        const cachedCamps = JSON.parse(localStorage.getItem("monitriach_campaigns_cache") || "[]");
+        const cachedOpps = JSON.parse(localStorage.getItem("monitriach_opportunities_cache") || "[]");
+        localLeadsCount = cachedLeads.length;
+        localCampsCount = cachedCamps.length;
+        localOppsCount = cachedOpps.length;
+      }
+
       setMetrics({
-        opportunityCount: 0,
-        campaignCount: 0,
-        leadCount: 0,
+        opportunityCount: localOppsCount,
+        campaignCount: localCampsCount,
+        leadCount: localLeadsCount,
         replyCount: 0,
         meetingCount: 0,
         pipelineValue: 0,

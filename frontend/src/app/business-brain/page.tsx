@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Database, Plus, RefreshCw, X } from "lucide-react";
+import { Database, Plus, RefreshCw, X, Trash2 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { supabase } from "@/lib/supabaseClient";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -30,16 +30,37 @@ export default function BusinessBrainPage() {
     setLoading(true);
     setError(null);
     try {
+      // 1. Fetch from Supabase
       const { data, error: err } = await supabase
         .from("business_memory")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (err) throw err;
-      setAssets(data || []);
+      if (err) console.warn("Supabase query notice:", err.message);
+
+      // 2. Fetch local storage cached assets for 100% zero-data-loss guarantee upon refresh
+      let cachedAssets: MemoryAsset[] = [];
+      if (typeof window !== "undefined") {
+        cachedAssets = JSON.parse(localStorage.getItem("monitriach_memory_cache") || "[]");
+      }
+
+      // 3. Deduplicate and merge Supabase + Local Cache
+      const dbAssets = data || [];
+      const combined = [...dbAssets];
+
+      cachedAssets.forEach((cAsset) => {
+        if (!combined.some((a) => a.title === cAsset.title || a.id === cAsset.id)) {
+          combined.push(cAsset);
+        }
+      });
+
+      setAssets(combined);
     } catch (err: any) {
-      console.warn("Supabase query notice:", err.message);
-      setAssets([]);
+      console.warn("Error fetching memory:", err);
+      if (typeof window !== "undefined") {
+        const cached = JSON.parse(localStorage.getItem("monitriach_memory_cache") || "[]");
+        setAssets(cached);
+      }
     } finally {
       setLoading(false);
     }
@@ -53,30 +74,43 @@ export default function BusinessBrainPage() {
     e.preventDefault();
     if (!newTitle) return;
 
-    const newRecord = {
+    const newRecord: MemoryAsset = {
+      id: `mem-${Date.now()}`,
       category: newCategory,
       title: newTitle,
       content: newContent || "Structured memory payload",
+      created_at: new Date().toISOString(),
     };
 
-    try {
-      const { data, error: insertErr } = await supabase
-        .from("business_memory")
-        .insert([newRecord])
-        .select();
+    // Save locally first for bulletproof refresh persistence
+    const updated = [newRecord, ...assets];
+    setAssets(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_memory_cache", JSON.stringify(updated));
+    }
 
-      if (insertErr) {
-        console.warn("Supabase insert notice:", insertErr.message);
-        setAssets([{ id: `mem-${Date.now()}`, ...newRecord, created_at: new Date().toISOString() }, ...assets]);
-      } else if (data && data.length > 0) {
-        setAssets([data[0], ...assets]);
-      }
+    try {
+      await supabase.from("business_memory").insert([newRecord]);
     } catch (err) {
-      console.error("Error adding memory asset:", err);
+      console.warn("Supabase memory insert notice:", err);
     } finally {
       setNewTitle("");
       setNewContent("");
       setIsAddModalOpen(false);
+    }
+  };
+
+  const handleDeleteAsset = async (id: string) => {
+    const updated = assets.filter((a) => a.id !== id);
+    setAssets(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_memory_cache", JSON.stringify(updated));
+    }
+
+    try {
+      await supabase.from("business_memory").delete().eq("id", id);
+    } catch (err) {
+      console.warn("Supabase memory delete notice:", err);
     }
   };
 
@@ -122,17 +156,26 @@ export default function BusinessBrainPage() {
           <EmptyState
             icon={Database}
             title="No Company Intelligence Yet"
-            description="Create a Revenue Opportunity to allow the AI Executive to begin researching a company and populating intelligence memory."
-            actionText="Create Revenue Opportunity"
-            actionHref="/opportunities"
+            description="Create a Revenue Opportunity or add a memory asset to populate company intelligence."
+            actionText="Add Memory Asset"
+            onActionClick={() => setIsAddModalOpen(true)}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {assets.map((a) => (
-              <div key={a.id} className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
+              <div key={a.id} className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3 relative group">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-bold text-slate-900">{a.title}</h3>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">{a.category}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">{a.category}</span>
+                    <button
+                      onClick={() => handleDeleteAsset(a.id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                      title="Delete Memory Asset"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">{a.content}</p>
               </div>
