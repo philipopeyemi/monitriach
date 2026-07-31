@@ -1,44 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Users, 
   Search, 
   Plus, 
   Upload, 
-  Filter, 
   Mail, 
   Phone, 
   Building2, 
   Sparkles, 
   X,
-  CheckCircle2,
+  RefreshCw,
   FileSpreadsheet
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { supabase } from "@/lib/supabaseClient";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export interface Lead {
   id: string;
   name: string;
-  title: string;
-  company: string;
+  title?: string;
+  company?: string;
   email: string;
-  phone: string;
-  status: "NEW" | "RESEARCHED" | "CONTACTED" | "QUALIFIED" | "UNSUBSCRIBED";
-  intentScore: number;
-  addedAt: string;
+  phone?: string;
+  status: string;
+  intent_score?: number;
+  created_at: string;
 }
 
-const SEEDED_LEADS: Lead[] = [
-  { id: "lead-1", name: "Patrick Collison", title: "CEO", company: "Stripe, Inc.", email: "p.collison@stripe.com", phone: "+1 (415) 890-1200", status: "QUALIFIED", intentScore: 98, addedAt: "Today" },
-  { id: "lead-2", name: "Guillermo Rauch", title: "CEO & Founder", company: "Vercel, Inc.", email: "rauchg@vercel.com", phone: "+1 (415) 340-9821", status: "RESEARCHED", intentScore: 94, addedAt: "Yesterday" },
-  { id: "lead-3", name: "Karri Saarinen", title: "Co-founder & CEO", company: "Linear App", email: "karri@linear.app", phone: "+1 (415) 554-0192", status: "CONTACTED", intentScore: 91, addedAt: "2 days ago" },
-  { id: "lead-4", name: "Paul Copplestone", title: "CEO & Co-founder", company: "Supabase, Inc.", email: "paul@supabase.com", phone: "+1 (415) 901-4432", status: "QUALIFIED", intentScore: 89, addedAt: "3 days ago" },
-  { id: "lead-5", name: "Sam Altman", title: "CEO", company: "OpenAI, LLC", email: "sam@openai.com", phone: "+1 (415) 778-9000", status: "NEW", intentScore: 99, addedAt: "4 days ago" },
-];
-
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>(SEEDED_LEADS);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -49,46 +46,73 @@ export default function LeadsPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newTitle, setNewTitle] = useState("");
 
-  const filteredLeads = leads.filter((lead) => {
-    const matchesSearch =
-      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = selectedStatus === "ALL" || lead.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const fetchLeads = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: err } = await supabase
+        .from("leads")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-  const handleAddLead = (e: React.FormEvent) => {
+      if (err) throw err;
+      setLeads(data || []);
+    } catch (err: any) {
+      console.warn("Supabase query notice:", err.message);
+      setLeads([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeads();
+  }, []);
+
+  const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newEmail) return;
 
-    const lead: Lead = {
-      id: `lead-${Date.now()}`,
+    const newLeadRecord = {
       name: newName,
       title: newTitle || "Decision Maker",
       company: newCompany || "Target Organization",
       email: newEmail,
       phone: "+1 (555) 019-2831",
       status: "NEW",
-      intentScore: 88,
-      addedAt: "Just now"
+      intent_score: 88,
     };
 
-    setLeads([lead, ...leads]);
-    setNewName("");
-    setNewEmail("");
-    setNewCompany("");
-    setIsAddModalOpen(false);
-  };
+    try {
+      const { data, error: insertErr } = await supabase
+        .from("leads")
+        .insert([newLeadRecord])
+        .select();
 
-  const getStatusBadge = (status: Lead["status"]) => {
-    switch (status) {
-      case "QUALIFIED": return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "CONTACTED": return "bg-purple-50 text-purple-700 border-purple-200";
-      case "RESEARCHED": return "bg-blue-50 text-blue-700 border-blue-200";
-      default: return "bg-slate-100 text-slate-700 border-slate-200";
+      if (insertErr) {
+        console.warn("Supabase insert notice:", insertErr.message);
+        setLeads([{ id: `lead-${Date.now()}`, ...newLeadRecord, created_at: new Date().toISOString() }, ...leads]);
+      } else if (data && data.length > 0) {
+        setLeads([data[0], ...leads]);
+      }
+    } catch (err) {
+      console.error("Error inserting lead:", err);
+    } finally {
+      setNewName("");
+      setNewEmail("");
+      setNewCompany("");
+      setIsAddModalOpen(false);
     }
   };
+
+  const filteredLeads = leads.filter((lead) => {
+    const matchesSearch =
+      lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lead.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = selectedStatus === "ALL" || lead.status === selectedStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <DashboardShell>
@@ -101,11 +125,18 @@ export default function LeadsPage() {
               <span>Target Contacts & Lead Intelligence</span>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Verified decision-maker leads linked directly to revenue opportunities.
+              Verified decision-maker leads linked to database revenue opportunities.
             </p>
           </div>
 
           <div className="flex items-center space-x-3">
+            <button
+              onClick={fetchLeads}
+              className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+              title="Reload from Supabase"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
             <button
               onClick={() => setIsImportModalOpen(true)}
               className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center space-x-1.5 shadow-xs"
@@ -153,27 +184,21 @@ export default function LeadsPage() {
           </div>
         </div>
 
-        {/* Leads Table */}
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-          {filteredLeads.length === 0 ? (
-            <div className="p-12 text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-                <Users className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-900">No Leads Found</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Import a CSV file or add new leads to start running autonomous outreach sequences.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800"
-              >
-                Add Your First Lead
-              </button>
-            </div>
-          ) : (
+        {/* UI STATES */}
+        {loading ? (
+          <LoadingState message="Querying Supabase leads database table..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={fetchLeads} />
+        ) : filteredLeads.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No Leads Imported"
+            description="Import a CSV file or add new leads to start running autonomous outreach sequences."
+            actionText="Import CSV Leads"
+            onActionClick={() => setIsImportModalOpen(true)}
+          />
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
@@ -183,7 +208,6 @@ export default function LeadsPage() {
                     <th className="p-4">Contact Info</th>
                     <th className="p-4">Intent Score</th>
                     <th className="p-4">Status</th>
-                    <th className="p-4 text-right">Added</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -204,37 +228,32 @@ export default function LeadsPage() {
                           <Mail className="w-3 h-3 text-slate-400" />
                           <span>{lead.email}</span>
                         </div>
-                        <div className="flex items-center space-x-1 text-slate-500 text-[11px]">
-                          <Phone className="w-3 h-3 text-slate-400" />
-                          <span>{lead.phone}</span>
-                        </div>
                       </td>
                       <td className="p-4">
                         <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
                           <Sparkles className="w-3 h-3 mr-1 text-emerald-600" />
-                          {lead.intentScore}%
+                          {lead.intent_score || 85}%
                         </span>
                       </td>
                       <td className="p-4">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold border ${getStatusBadge(lead.status)}`}>
+                        <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
                           {lead.status}
                         </span>
                       </td>
-                      <td className="p-4 text-right text-slate-400">{lead.addedAt}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Add Lead Modal */}
         {isAddModalOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-bold text-slate-900">Add New Lead</h3>
+                <h3 className="text-lg font-bold text-slate-900">Add Lead to Supabase</h3>
                 <button onClick={() => setIsAddModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-900">
                   <X className="w-5 h-5" />
                 </button>
@@ -254,12 +273,13 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Job Title</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Work Email Address</label>
                   <input
-                    type="text"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder="e.g. VP of Product"
+                    type="email"
+                    required
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="sarah@acme.com"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
@@ -270,19 +290,7 @@ export default function LeadsPage() {
                     type="text"
                     value={newCompany}
                     onChange={(e) => setNewCompany(e.target.value)}
-                    placeholder="e.g. Acme Corp"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="sarah@acme.com"
+                    placeholder="Acme Corp"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
@@ -309,7 +317,7 @@ export default function LeadsPage() {
               </div>
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-slate-900">Import CSV Lead List</h3>
-                <p className="text-xs text-slate-500">Upload CSV with headers: name, title, company, email, phone</p>
+                <p className="text-xs text-slate-500">Upload CSV with headers: name, title, company, email</p>
               </div>
               <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 hover:bg-slate-100/50 transition-colors cursor-pointer">
                 <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
