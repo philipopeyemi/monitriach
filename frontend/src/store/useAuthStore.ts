@@ -59,7 +59,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   token: "demo-jwt-token",
   isAuthenticated: true,
-  setAuth: (user, token) => set({ user, token, isAuthenticated: true }),
+  setAuth: (user, token) => {
+    if (typeof document !== "undefined") {
+      document.cookie = `monitriach-auth-token=${token}; path=/; max-age=86400`;
+    }
+    set({ user, token, isAuthenticated: true });
+  },
   setOrganization: (organization) => set({ organization }),
   setWorkspace: (workspace) => set({ workspace }),
   completeOnboarding: async (data) => {
@@ -76,5 +81,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     };
     set({ organization: newOrg, workspace: newWs });
   },
-  logout: () => set({ user: null, organization: null, workspace: null, token: null, isAuthenticated: false }),
+  logout: () => {
+    if (typeof document !== "undefined") {
+      document.cookie = "monitriach-auth-token=; path=/; max-age=0";
+    }
+    set({ user: null, organization: null, workspace: null, token: null, isAuthenticated: false });
+  },
 }));
+
