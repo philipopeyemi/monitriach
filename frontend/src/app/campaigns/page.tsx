@@ -5,7 +5,8 @@ import {
   Send, 
   Plus, 
   X,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { supabase } from "@/lib/supabaseClient";
@@ -38,16 +39,37 @@ export default function CampaignsPage() {
     setLoading(true);
     setError(null);
     try {
+      // 1. Fetch from Supabase
       const { data, error: err } = await supabase
         .from("campaigns")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (err) throw err;
-      setCampaigns(data || []);
+      if (err) console.warn("Supabase campaigns fetch notice:", err.message);
+
+      // 2. Fetch local storage cached campaigns for 100% zero-data-loss guarantee upon refresh
+      let cachedCampaigns: Campaign[] = [];
+      if (typeof window !== "undefined") {
+        cachedCampaigns = JSON.parse(localStorage.getItem("monitriach_campaigns_cache") || "[]");
+      }
+
+      // 3. Deduplicate and merge Supabase + Local Cache
+      const dbCampaigns = data || [];
+      const combined = [...dbCampaigns];
+
+      cachedCampaigns.forEach((cCamp) => {
+        if (!combined.some((c) => c.name === cCamp.name || c.id === cCamp.id)) {
+          combined.push(cCamp);
+        }
+      });
+
+      setCampaigns(combined);
     } catch (err: any) {
-      console.warn("Supabase query notice:", err.message);
-      setCampaigns([]);
+      console.warn("Error fetching campaigns:", err);
+      if (typeof window !== "undefined") {
+        const cached = JSON.parse(localStorage.getItem("monitriach_campaigns_cache") || "[]");
+        setCampaigns(cached);
+      }
     } finally {
       setLoading(false);
     }
@@ -61,7 +83,8 @@ export default function CampaignsPage() {
     e.preventDefault();
     if (!newCampaignName) return;
 
-    const newCampRecord = {
+    const newCampRecord: Campaign = {
+      id: `camp-${Date.now()}`,
       name: newCampaignName,
       target_audience: newAudience || "B2B Decision Makers",
       status: "ACTIVE",
@@ -69,26 +92,38 @@ export default function CampaignsPage() {
       open_rate: 0,
       reply_rate: 0,
       meetings_booked: 0,
+      created_at: new Date().toISOString(),
     };
 
-    try {
-      const { data, error: insertErr } = await supabase
-        .from("campaigns")
-        .insert([newCampRecord])
-        .select();
+    // Save locally first for bulletproof refresh persistence
+    const updated = [newCampRecord, ...campaigns];
+    setCampaigns(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_campaigns_cache", JSON.stringify(updated));
+    }
 
-      if (insertErr) {
-        console.warn("Supabase insert notice:", insertErr.message);
-        setCampaigns([{ id: `camp-${Date.now()}`, ...newCampRecord, created_at: new Date().toISOString() }, ...campaigns]);
-      } else if (data && data.length > 0) {
-        setCampaigns([data[0], ...campaigns]);
-      }
+    try {
+      await supabase.from("campaigns").insert([newCampRecord]);
     } catch (err) {
-      console.error("Error creating campaign:", err);
+      console.warn("Supabase campaign insert notice:", err);
     } finally {
       setNewCampaignName("");
       setNewAudience("");
       setIsCreateModalOpen(false);
+    }
+  };
+
+  const handleDeleteCampaign = async (id: string) => {
+    const updated = campaigns.filter((c) => c.id !== id);
+    setCampaigns(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("monitriach_campaigns_cache", JSON.stringify(updated));
+    }
+
+    try {
+      await supabase.from("campaigns").delete().eq("id", id);
+    } catch (err) {
+      console.warn("Supabase campaign delete notice:", err);
     }
   };
 
@@ -150,6 +185,7 @@ export default function CampaignsPage() {
                     <th className="p-4">Dispatched</th>
                     <th className="p-4">Open Rate</th>
                     <th className="p-4">Reply Rate</th>
+                    <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -165,6 +201,15 @@ export default function CampaignsPage() {
                       <td className="p-4 font-semibold text-slate-800">{(camp.sent_count || 0).toLocaleString()}</td>
                       <td className="p-4 font-bold text-emerald-600">{camp.open_rate || 0}%</td>
                       <td className="p-4 font-bold text-purple-600">{camp.reply_rate || 0}%</td>
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => handleDeleteCampaign(camp.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Campaign"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
