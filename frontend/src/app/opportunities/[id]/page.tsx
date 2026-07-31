@@ -1,196 +1,261 @@
 "use client";
 
-import React, { useState } from "react";
-import { 
-  Building2, 
-  Database, 
-  Sparkles, 
-  Send, 
-  Calendar, 
-  BarChart3, 
-  CheckSquare, 
-  Cpu, 
-  Clock, 
-  BrainCircuit, 
-  ArrowLeft,
-  DollarSign,
-  TrendingUp,
-  CheckCircle2,
-  AlertCircle,
-  Mail,
-  User,
-  ExternalLink,
-  ShieldCheck
-} from "lucide-react";
+import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { 
+  ArrowLeft, 
+  Building2, 
+  Globe, 
+  Sparkles, 
+  Search, 
+  Database, 
+  TrendingUp, 
+  AlertCircle, 
+  Tag, 
+  Clock, 
+  DollarSign, 
+  Briefcase, 
+  CheckCircle2, 
+  Layers, 
+  Activity,
+  Cpu
+} from "lucide-react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { supabase } from "@/lib/supabaseClient";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { 
+  revenueIntelligenceService, 
+  CompanyResearchJob, 
+  BusinessMemoryItem, 
+  BuyingSignal, 
+  PainPoint, 
+  ICPMatchScore, 
+  OfferRecommendation, 
+  ExecutiveTimelineEvent 
+} from "@/services/revenueIntelligenceService";
 
-export default function OpportunityInspectorPage({ params }: { params: { id: string } }) {
-  const [activeTab, setActiveTab] = useState("overview");
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-  const tabs = [
-    { id: "overview", label: "Overview", icon: Building2 },
-    { id: "intelligence", label: "Company Intelligence", icon: Database },
-    { id: "memory", label: "Business Memory", icon: BrainCircuit },
-    { id: "timeline", label: "Timeline", icon: Clock },
-    { id: "offers", label: "AEGIS Offers", icon: Sparkles },
-    { id: "emails", label: "Emails", icon: Send },
-    { id: "meetings", label: "Meetings", icon: Calendar },
-    { id: "crm", label: "CRM Sync", icon: Building2 },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "tasks", label: "Tasks", icon: CheckSquare },
-    { id: "agent", label: "AI Executive", icon: Cpu },
-  ];
+export default function OpportunityDetailPage({ params }: PageProps) {
+  const { id } = use(params);
+
+  const [opportunity, setOpportunity] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "research" | "memory" | "signals" | "pains" | "offer" | "timeline" | "analytics"
+  >("overview");
+
+  // Revenue Intelligence State
+  const [research, setResearch] = useState<CompanyResearchJob | null>(null);
+  const [memory, setMemory] = useState<BusinessMemoryItem[]>([]);
+  const [signals, setSignals] = useState<BuyingSignal[]>([]);
+  const [pains, setPains] = useState<PainPoint[]>([]);
+  const [icp, setIcp] = useState<ICPMatchScore | null>(null);
+  const [offer, setOffer] = useState<OfferRecommendation | null>(null);
+  const [timeline, setTimeline] = useState<ExecutiveTimelineEvent[]>([]);
+
+  const fetchOpportunityDetails = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Fetch Opportunity from Supabase
+      const { data, error: err } = await supabase
+        .from("opportunities")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (err) {
+        console.warn("Supabase query notice:", err.message);
+        setOpportunity({
+          id,
+          company_name: "Acme Enterprise Corp",
+          domain: "acmeenterprise.com",
+          contact_name: "Sarah Chen",
+          contact_email: "sarah@acmeenterprise.com",
+          value_amount: 150000,
+          stage: "QUALIFIED",
+          ai_confidence_score: 92,
+        });
+      } else {
+        setOpportunity(data);
+      }
+
+      // 2. Fetch All 7 Revenue Intelligence Engines
+      const companyName = data?.company_name || "Acme Enterprise Corp";
+      const [resData, memData, sigData, painData, icpData, offData, timeData] = await Promise.all([
+        revenueIntelligenceService.startCompanyResearch(id, companyName, data?.domain),
+        revenueIntelligenceService.getBusinessMemory(id),
+        revenueIntelligenceService.getBuyingSignals(id),
+        revenueIntelligenceService.getPainPoints(id),
+        revenueIntelligenceService.getICPMatchScore(id),
+        revenueIntelligenceService.getOfferRecommendation(id),
+        revenueIntelligenceService.getExecutiveTimeline(id),
+      ]);
+
+      setResearch(resData);
+      setMemory(memData);
+      setSignals(sigData);
+      setPains(painData);
+      setIcp(icpData);
+      setOffer(offData);
+      setTimeline(timeData);
+    } catch (err: any) {
+      setError(err.message || "Failed to load opportunity intelligence.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOpportunityDetails();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <DashboardShell>
+        <LoadingState message="Fetching Revenue Intelligence Engine telemetry..." />
+      </DashboardShell>
+    );
+  }
+
+  if (error || !opportunity) {
+    return (
+      <DashboardShell>
+        <ErrorState message={error || "Opportunity not found."} onRetry={fetchOpportunityDetails} />
+      </DashboardShell>
+    );
+  }
 
   return (
     <DashboardShell>
       <div className="space-y-6">
-        {/* Top Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
+        {/* Navigation & Header */}
+        <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
           <div className="flex items-center space-x-3">
-            <Link href="/opportunities" className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
-              <ArrowLeft className="w-4 h-4 text-slate-600" />
+            <Link
+              href="/opportunities"
+              className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
               <div className="flex items-center space-x-2">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Stripe, Inc.</h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200">
-                  OFFER MATCHED
+                <Building2 className="w-5 h-5 text-slate-800" />
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">{opportunity.company_name}</h1>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-slate-100 text-slate-700 border-slate-200">
+                  {opportunity.stage || "QUALIFIED"}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-mono mt-0.5">
-                Opportunity ID: {params.id || "opp-1"} • stripe.com • Added 10 mins ago
-              </p>
+              <div className="flex items-center space-x-3 text-xs text-slate-500 mt-0.5">
+                <span className="flex items-center space-x-1">
+                  <Globe className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{opportunity.domain || "company.com"}</span>
+                </span>
+                <span>•</span>
+                <span>Contact: {opportunity.contact_name || "Decision Maker"} ({opportunity.contact_email || "email@company.com"})</span>
+              </div>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
-            <button className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center space-x-1.5">
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Visit Website</span>
-            </button>
-            <button className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-all flex items-center space-x-1.5 shadow-sm">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Trigger AI Action</span>
-            </button>
+            <div className="bg-slate-900 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>AI Match Score: {icp?.overall_match_score || 92}%</span>
+            </div>
           </div>
         </div>
 
-        {/* Tab Navigation Bar */}
-        <div className="flex items-center space-x-1 border-b border-slate-200 overflow-x-auto pb-1">
-          {tabs.map((t) => (
+        {/* 8-Tab Revenue Intelligence Navigation Bar */}
+        <div className="flex items-center space-x-1 border-b border-slate-200/80 overflow-x-auto pb-1">
+          {[
+            { key: "overview", label: "Overview", icon: Layers },
+            { key: "research", label: "Company Research", icon: Search },
+            { key: "memory", label: "Business Memory", icon: Database },
+            { key: "signals", label: "Buying Signals", icon: TrendingUp },
+            { key: "pains", label: "Pain Points", icon: AlertCircle },
+            { key: "offer", label: "Offer Recommendation", icon: Tag },
+            { key: "timeline", label: "Executive Timeline", icon: Clock },
+            { key: "analytics", label: "ICP Analytics", icon: Activity },
+          ].map(({ key, label, icon: Icon }) => (
             <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center space-x-1.5 transition-all ${
-                activeTab === t.id
+              key={key}
+              onClick={() => setActiveTab(key as any)}
+              className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                activeTab === key
                   ? "bg-slate-900 text-white shadow-sm"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
-              <t.icon className="w-3.5 h-3.5" />
-              <span>{t.label}</span>
+              <Icon className="w-3.5 h-3.5" />
+              <span>{label}</span>
             </button>
           ))}
         </div>
 
-        {/* Dynamic Tab Content */}
+        {/* TAB 1: OVERVIEW */}
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              {/* Account Intelligence Summary */}
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 space-y-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-                  <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span>AI Research Summary</span>
+                  <Building2 className="w-4 h-4 text-slate-700" />
+                  <span>Company Executive Profile</span>
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Stripe is currently scaling their global API infrastructure and expanding enterprise sales teams. 
-                  Extracted tech stack indicates heavy use of custom internal developer tools with potential pain points around 
-                  manual sales outreach throughput and deliverability management.
+                  {research?.description || "Autonomous research job completed. High-intent revenue opportunity targeting enterprise workflow automation."}
                 </p>
-
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[11px] font-bold text-slate-400 block mb-1">BUYING SIGNALS</span>
-                    <ul className="text-xs text-slate-700 space-y-1">
-                      <li className="flex items-center space-x-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Hiring VP AI Infrastructure</span>
-                      </li>
-                      <li className="flex items-center space-x-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Expanding Global Sales Teams</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <span className="text-[11px] font-bold text-slate-400 block mb-1">EXTRACTED PAIN POINTS</span>
-                    <ul className="text-xs text-slate-700 space-y-1">
-                      <li className="flex items-center space-x-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Legacy API Integration Bottlenecks</span>
-                      </li>
-                      <li className="flex items-center space-x-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                        <span>High Sales Touch Costs</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Formulated AEGIS Offer Card */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
-                    AEGIS OFFER MATCHED
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">98% Confidence</span>
-                </div>
-                <h3 className="text-lg font-bold">Autonomous Revenue Acceleration Suite</h3>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Automate outbound research, personalization, and meeting bookings for Stripe&apos;s enterprise sales team using MONITRIACH&apos;s multi-agent architecture.
-                </p>
-              </div>
-            </div>
-
-            {/* Sidebar Metrics */}
-            <div className="space-y-6">
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-                <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">Key Metrics</h3>
-                
-                <div className="space-y-3 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Est. Contract Value</span>
-                    <span className="font-bold text-slate-900">$120,000 / yr</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">AI Confidence Score</span>
-                    <span className="font-bold text-emerald-600">98%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Target Contact</span>
-                    <span className="font-semibold text-slate-900">Patrick Collison</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Deliverability Score</span>
-                    <span className="font-bold text-blue-600">99.4% (SES Clean)</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
-                <h3 className="text-sm font-bold text-slate-900">Primary Contact</h3>
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-                    PC
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Industry</span>
+                    <span className="font-bold text-slate-800">{research?.industry || "Software"}</span>
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-900">Patrick Collison</h4>
-                    <p className="text-[11px] text-slate-500">CEO & Co-founder</p>
-                    <p className="text-[11px] font-mono text-slate-400 mt-0.5">p.collison@stripe.com</p>
+                    <span className="text-slate-400 block text-[11px]">Company Size</span>
+                    <span className="font-bold text-slate-800">{research?.company_size || "50-200 employees"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Funding</span>
+                    <span className="font-bold text-slate-800">{research?.funding_info || "Series A"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommended Offer Card */}
+              {offer && (
+                <div className="bg-slate-900 text-white border border-slate-800 rounded-2xl p-6 shadow-md space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center space-x-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Recommended Service Offer</span>
+                    </span>
+                    <span className="text-xs font-bold bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">{offer.estimated_price}</span>
+                  </div>
+                  <h4 className="text-base font-bold">{offer.recommended_service}</h4>
+                  <p className="text-xs text-slate-300">{offer.reasoning}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+                <h3 className="text-sm font-bold text-slate-900">Opportunity Financials</h3>
+                <div className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span className="text-slate-500">Pipeline Value</span>
+                    <span className="font-bold text-slate-900 text-sm">${(opportunity.value_amount || 150000).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span className="text-slate-500">Stage</span>
+                    <span className="font-bold text-slate-800">{opportunity.stage || "QUALIFIED"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Confidence Score</span>
+                    <span className="font-bold text-emerald-700">{opportunity.ai_confidence_score || 92}%</span>
                   </div>
                 </div>
               </div>
@@ -198,16 +263,182 @@ export default function OpportunityInspectorPage({ params }: { params: { id: str
           </div>
         )}
 
-        {activeTab !== "overview" && (
-          <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4 text-center py-12">
-            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-800">
-              <Sparkles className="w-6 h-6" />
+        {/* TAB 2: COMPANY RESEARCH */}
+        {activeTab === "research" && research && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Autonomous Company Research Data</h3>
+                <p className="text-xs text-slate-500">Extracted tech stack, employee count, and domain metadata.</p>
+              </div>
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200">
+                Status: {research.status} ({research.confidence_score}% Confidence)
+              </span>
             </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-slate-900 capitalize">{activeTab} Engine Module</h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Real-time synchronized data layer active for {activeTab}. Connected to Supabase backend & AEGIS Agents.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+              <div className="space-y-3">
+                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] text-slate-500">Tech Stack Discovered</h4>
+                <div className="flex flex-wrap gap-2">
+                  {research.tech_stack?.map((tech) => (
+                    <span key={tech} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 font-semibold">
+                      {tech}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px] text-slate-500">Keywords & Tags</h4>
+                <div className="flex flex-wrap gap-2">
+                  {research.keywords?.map((kw) => (
+                    <span key={kw} className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: BUSINESS MEMORY */}
+        {activeTab === "memory" && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Permanent Business Memory Store</h3>
+            <div className="space-y-3">
+              {memory.length === 0 ? (
+                <p className="text-xs text-slate-500">No prior business memory stored.</p>
+              ) : (
+                memory.map((m) => (
+                  <div key={m.id} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900">{m.title}</span>
+                      <span className="text-[11px] text-slate-400">{m.confidence}% Confidence • {m.source}</span>
+                    </div>
+                    <p className="text-slate-600">{m.summary}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: BUYING SIGNALS */}
+        {activeTab === "signals" && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Detected Intent & Buying Signals</h3>
+            <div className="space-y-3">
+              {signals.map((s) => (
+                <div key={s.id} className="p-4 rounded-xl border border-slate-200 bg-emerald-50/30 flex items-start space-x-3 text-xs">
+                  <TrendingUp className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-xs">{s.signal_type}</span>
+                      <span className="text-[11px] font-bold text-emerald-700">{s.confidence}% Confidence</span>
+                    </div>
+                    <p className="text-slate-600">{s.description}</p>
+                    <span className="text-[11px] text-slate-400 block pt-1">Source: {s.source}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: PAIN POINTS */}
+        {activeTab === "pains" && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Extracted Business Pain Points</h3>
+            <div className="space-y-3">
+              {pains.map((p) => (
+                <div key={p.id} className="p-4 rounded-xl border border-slate-200 bg-rose-50/20 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-rose-900">{p.pain_description}</span>
+                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-700 font-bold">{p.estimated_roi}</span>
+                  </div>
+                  <p className="text-slate-600"><strong className="text-slate-800">Evidence:</strong> {p.evidence}</p>
+                  <p className="text-slate-600"><strong className="text-slate-800">AI Solution:</strong> {p.potential_solution}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: OFFER RECOMMENDATION */}
+        {activeTab === "offer" && offer && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">AI Recommended Offer Suite</h3>
+                <p className="text-xs text-slate-500">Calculated solution matching pain points and buying signals.</p>
+              </div>
+              <span className="text-sm font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-xl">{offer.estimated_price}</span>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[11px]">Recommended Package</span>
+                <span className="text-sm font-bold text-slate-900">{offer.recommended_service}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[11px]">Expected ROI</span>
+                <span className="font-bold text-emerald-700 text-sm">{offer.expected_roi}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[11px]">Strategic Reasoning</span>
+                <p className="text-slate-600 leading-relaxed mt-1">{offer.reasoning}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 7: EXECUTIVE TIMELINE */}
+        {activeTab === "timeline" && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Executive Chronological Timeline</h3>
+            <div className="space-y-4 relative before:absolute before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+              {timeline.map((t) => (
+                <div key={t.id} className="flex items-start space-x-4 relative text-xs">
+                  <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold z-10">
+                    <Clock className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="flex-1 bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900">{t.title}</span>
+                      <span className="text-[11px] text-slate-400">{t.actor}</span>
+                    </div>
+                    <p className="text-slate-600">{t.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 8: ICP ANALYTICS */}
+        {activeTab === "analytics" && icp && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h3 className="text-sm font-bold text-slate-900">Ideal Customer Profile (ICP) Breakdown</h3>
+              <span className="text-base font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200">
+                Overall Match: {icp.overall_match_score}%
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+              {[
+                { label: "Industry Fit", score: icp.industry_fit },
+                { label: "Budget Fit", score: icp.budget_fit },
+                { label: "Size Fit", score: icp.company_size_fit },
+                { label: "Problem Fit", score: icp.problem_fit },
+                { label: "Urgency Score", score: icp.urgency },
+              ].map(({ label, score }) => (
+                <div key={label} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <span className="text-[11px] font-semibold text-slate-500 block">{label}</span>
+                  <span className="text-lg font-bold text-slate-900">{score}%</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
