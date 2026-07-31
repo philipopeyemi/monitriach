@@ -151,7 +151,7 @@ export default function OpportunityInspectorPage({ params }: { params: { id: str
                 </div>
                 <h3 className="text-lg font-bold">Autonomous Revenue Acceleration Suite</h3>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Automate outbound research, personalization, and meeting bookings for Stripe's enterprise sales team using MONITRIACH's multi-agent architecture.
+                  Automate outbound research, personalization, and meeting bookings for Stripe&apos;s enterprise sales team using MONITRIACH&apos;s multi-agent architecture.
                 </p>
               </div>
             </div>

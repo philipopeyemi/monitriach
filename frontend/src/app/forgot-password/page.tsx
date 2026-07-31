@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
             <span className="font-bold text-lg text-slate-900 tracking-tight">MONITRIACH</span>
           </Link>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Reset Password</h1>
-          <p className="text-xs text-slate-500">We'll send password reset instructions to your email</p>
+          <p className="text-xs text-slate-500">We&apos;ll send password reset instructions to your email</p>
         </div>
 
         {submitted ? (

@@ -211,7 +211,7 @@ export default function MarketingLandingPage() {
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Step 2 • AEGIS Offer</span>
                 <h4 className="text-sm font-bold text-slate-900">Value Proposition Formulation</h4>
-                <p className="text-xs text-slate-600">Mapped "Enterprise AI Infrastructure" offer with 98% match confidence.</p>
+                <p className="text-xs text-slate-600">Mapped &quot;Enterprise AI Infrastructure&quot; offer with 98% match confidence.</p>
               </div>
 
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
@@ -301,6 +301,9 @@ export default function MarketingLandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Transparent Pricing</h2>
+            <p className="text-sm font-semibold text-slate-700 max-w-xl mx-auto italic">
+              &quot;MONITRIACH transformed our outbound revenue engine within 48 hours.&quot;
+            </p>
             <h3 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
               Invest in Autonomous Revenue Operations
             </h3>
